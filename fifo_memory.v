@@ -26,10 +26,10 @@ module fifo_memory #(parameter DEPTH = 3, WIDTH = 11, UWIDTH = 8, PTR_SZ = 2, PT
 
   always @(*)
   begin
-    if (write_en) mem[waddr][waddr_in] = wdata;
-    if (uread_en) udata = mem[uaddr][uaddr_in];
-    if (read_port_1_en) rdata_port_1 = mem[raddr_port_1][raddr_in_port_1];
-    if (read_port_2_en) rdata_port_2 = mem[raddr_port_2][raddr_in_port_2];
-    if (read_port_3_en) rdata_port_3 = mem[raddr_port_3][raddr_in_port_3];
+    if (write_en) memory[waddr][waddr_in] = wdata;
+    if (uread_en) udata = memory[uaddr][uaddr_in];
+    if (read_port_1_en) rdata_port_1 = memory[raddr_port_1][raddr_in_port_1];
+    if (read_port_2_en) rdata_port_2 = memory[raddr_port_2][raddr_in_port_2];
+    if (read_port_3_en) rdata_port_3 = memory[raddr_port_3][raddr_in_port_3];
   end
 endmodule
