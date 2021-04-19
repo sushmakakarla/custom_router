@@ -21,7 +21,7 @@ module fifo_memory #(parameter DEPTH = 3, WIDTH = 11, UWIDTH = 8, PTR_SZ = 2, PT
 		     output reg [(UWIDTH-1):0] udata
 );
 
-  reg [(UWIDTH-1):0] memory [(WIDTH-1):0][(DEPTH-1):0];
+  reg [(UWIDTH-1):0] memory [(DEPTH-1):0][(WIDTH-1):0];
   // reg [(UWIDTH*WIDTH-1):0] memory [(DEPTH-1):0];
 
   always @(*)

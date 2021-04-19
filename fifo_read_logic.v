@@ -49,6 +49,7 @@ module fifo_read_logic #(parameter DEPTH = 3, UWIDTH = 8, PTR_SZ = 2, PTR_IN_SZ 
   reg [2:0] out_port;
 
   assign ptr_gray = (rptr >> 1) ^ rptr;
+  //assign rq2_wptr[] 
 
   always @(posedge clk2 or negedge rst)
   begin
