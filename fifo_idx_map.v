@@ -20,7 +20,6 @@ module fifo_idx_map #(parameter DEPTH = 3, PTR_SZ = 2)
     if (read_en)  rdata = memory[raddr];
   end
 
-  always @(negedge rst) begin
+  always @(negedge rst)
     for (i = 0; i < DEPTH; i = i+1) memory[i] = i;
-  end
 endmodule
