@@ -1,7 +1,7 @@
 // fifo_read_logic.v
 // Author: Vladislav Rykov
 
-`define DEST_ID	1
+`define DEST_ID	1 //< DestID byte index
 
 module fifo_read_logic #(parameter DEPTH = 3, UWIDTH = 8, PTR_SZ = 2, PTR_IN_SZ = 4)
 			(input clk2, rst,
@@ -13,31 +13,50 @@ module fifo_read_logic #(parameter DEPTH = 3, UWIDTH = 8, PTR_SZ = 2, PTR_IN_SZ 
 			 output reg [(PTR_IN_SZ-1):0] uaddr_in,
 			 output reg read_port_1_en, read_port_2_en, read_port_3_en,
 			 output reg [(PTR_SZ-1):0] raddr_port_1, raddr_port_2, raddr_port_3,
-			 output reg [(PTR_SZ-1):0] rptr
+			 output reg [(PTR_SZ-1):0] rptr_gray,
 			 output reg [(PTR_SZ-1):0] iaddr, idata,
 			 output reg iwrite_en, iread_en
 );
 
-  localparam IDLE = 2'b00, BUSY_1 = 2'b01, BUSY_2 = 2'b10, BUSY_3 = 2'b11;
+  // Read logic and routing states
+  localparam IDLE = 2'b00, READ_NEXT_IDX = 2'b01, READ_DST_ID = 2'b10, DISPATCH = 2'b11;
   reg [1:0] current_state, next_state;
-  localparam RDST_START = 1'b0, RDST_DONE = 1'b1;
-  reg rdst_current_state, rdst_next_state;
-  localparam WIDX_START = 1'b0, WIDX_DONE = 1'b1;
-  reg widx_current_state, widx_next_state;
+    
+  // Port x states
+  localparam PIDLE = 2'b00, PBUSY = 2'b01, PDONE = 2'b10;
+  reg [1:0] port_1_current_state, port_1_next_state;
+  reg [(PTR_SZ-1):0] port_1_queue [(PTR_SZ-1):0];
+  reg [(PTR_SZ-1):0] port_1_ridx, port_1_widx;
+  wire port_1_empty = port_1_widx == port_1_ridx;  
 
-  reg rempty = rptr == rq2_wptr;
+  reg [1:0] port_2_current_state, port_2_next_state;
+  reg [(PTR_SZ-1):0] port_2_queue [(PTR_SZ-1):0];
+  reg [(PTR_SZ-1):0] port_2_ridx, port_2_widx;
+  wire port_2_empty = port_2_widx == port_2_ridx;  
 
-  reg [2:0] active_ports;
+  reg [1:0] port_3_current_state, port_3_next_state;
+  reg [(PTR_SZ-1):0] port_3_queue [(PTR_SZ-1):0];
+  reg [(PTR_SZ-1):0] port_3_ridx, port_3_widx;
+  wire port_3_empty = port_3_widx == port_3_ridx;  
+
+  reg [(PTR_SZ-1):0] rptr;
+  reg [(PTR_SZ-1):0] vrptr;
+  wire vrempty = vrptr == rq2_wptr;
+  wire rempty = rptr == rq2_wptr;
+
   reg [(PTR_SZ-1):0] ridx;
   reg [(UWIDTH-1):0] dest_id;
+  reg [2:0] out_port;
+
+  assign ptr_gray = (rptr >> 1) ^ rptr;
 
   always @(posedge clk2 or negedge rst)
   begin
     if (!rst) current_state <= IDLE;
-    else      next_state    <= current_state;
+    else      current_state <= next_state;
   end
 
-  // sequential output logic
+  // sequential output
   always @(posedge clk2 or negedge rst)
   begin
     if (!rst)
@@ -49,108 +68,189 @@ module fifo_read_logic #(parameter DEPTH = 3, UWIDTH = 8, PTR_SZ = 2, PTR_IN_SZ 
       raddr_port_2 <= 0;
       raddr_port_3 <= 0;
       rptr <= 0;
-      
-      active_ports = 0;
+      vrptr <= 0;
+
+      uaddr <= 0;
+      uaddr_in <= 0;
+      uread_en <= 0;
+
+      iaddr <= 0;
+      idata <= 0;
+      iwrite_en <= 0;
+      iread_en <= 0;
+
       ridx = 0;
       dest_id = 0;
-    else
-      // routing logic
+    //else
+      
     end
   end
 
+  // on any change in current state or write pointer
   always @(current_state or rq2_wptr)
   begin
-    // fsm logic
     next_state = current_state;
-    // set default output
 
-    // deref idx
-    // read dest_id
-    // decide port
-    // if free set read_port_x_en
-          
-    // deref idx
-    iaddr = rq2_wptr - 1;
-    iread_en = 1;
-    ridx = idata;
-    iread_en = 0;
-
-    // read dest_id
-    uaddr = ridx;
-    uaddr_in = `DEST_ID;
-    dest_id = udata;
-         
     case (current_state)
       IDLE: begin
-        if (!rempty) // => fifo+1
-        begin
-          // decide port
-          if (dest_id >= 0 && dest_id <= 127)
-          begin
-            raddr_port_1 = ridx;
-            read_port_1_en = 1;
-          end
-          else if (dest_id >= 128 && dest_id <= 195)
-          begin
-            raddr_port_2 = ridx;
-            read_port_2_en = 1;
-          end
-          else if (dest_id >= 196 && dest_id <= 255)
-          begin
-            raddr_port_3 = ridx;
-            read_port_3_en = 1;
-          end
-
-          next_state = BUSY_1;
-          active_ports = active_ports + 1;
-          // wait for reading out
-        end
+        if (!vrempty) begin
+          // read right index from fifo_idx_map
+          iaddr = rq2_wptr;
+          iread_en = 1;
+          vrptr = (vrptr + 1) % DEPTH;
+          next_state = READ_NEXT_IDX;
+        end else
+          next_state = IDLE;
       end
-      BUSY_1: begin
-
+      READ_NEXT_IDX: begin
+        iread_en = 0;
+        uaddr = idata;
+        uaddr_in = `DEST_ID;
+        uread_en = 1;
+        
+        ridx = idata;
+        next_state = READ_DST_ID;
       end
-      BUSY_2: begin
-
+      READ_DST_ID: begin
+        // read dest_id
+        dest_id = udata;
       end
-      BUSY_3: begin
-
+      DISPATCH: begin
+        out_port = dest_id >= 0 && dest_id <= 127? 0 : dest_id >= 128 && dest_id <= 195? 1 : 2;
+          
+        case (out_port)
+          0: begin
+            port_1_queue[port_1_widx] = ridx;
+            port_1_widx <= (port_1_widx + 1) % DEPTH;
+          end
+          1: begin
+            port_2_queue[port_2_widx] = ridx;
+            port_2_widx <= (port_2_widx + 1) % DEPTH;
+          end
+          2: begin
+            port_3_queue[port_3_widx] = ridx;
+            port_3_widx <= (port_3_widx + 1) % DEPTH;
+          end
+        endcase
       end
     endcase
   end
 
-  always @(read_port_1_done)
+  // Port 1 FSM
+  always @(posedge clk2 or negedge rst)
   begin
-          // read done
-          // write next free idx
-          // advance ptr
-          // fifo-1
-    read_port_1_en = 0;
-    // write next ref idx to write
-    iwrite_en = 1;
-    iaddr = rptr;
-    idata = raddr_port_1;
-    iwrite_en = 0;
-    // increment read ptr
-    rptr = rptr + 1;
-    
-    case (current_state)
-      BUSY_1: begin
-        next_state = IDLE;
-      end
-      BUSY_2: begin
-        next_state = BUSY_1;
-      end
-      BUSY_3: begin
-        next_state = BUSY_2;
-      end
-    endcase
-
-    active_ports = active_ports - 1;
+    if (!rst) port_1_current_state <= PIDLE;
+    else      port_1_current_state <= port_1_next_state;
   end
 
-  // combinational output logic
   always @(*)
   begin
+    port_1_next_state = port_1_current_state;
 
+    case (port_1_current_state)
+      PIDLE: begin
+        if (!port_1_empty) begin
+          raddr_port_1 = port_1_queue[port_1_ridx];
+          read_port_1_en = 0;
+          port_1_next_state = PBUSY;
+        end else
+          port_1_next_state = PIDLE;
+      end
+      PBUSY: begin
+        if (read_port_1_done) begin
+          read_port_1_en = 0;
+          iaddr = rptr;
+          idata = port_1_queue[port_1_ridx];
+          iwrite_en = 1;
+          port_1_next_state = PDONE;
+        end else
+          port_1_next_state = PBUSY;
+      end
+      PDONE: begin
+        iwrite_en = 0;
+        rptr = (rptr + 1) % DEPTH;
+        port_1_ridx = (port_1_ridx + 1) % DEPTH;
+        port_1_next_state = PIDLE;
+      end
+    endcase
   end
+
+  // Port 2 FSM
+  always @(posedge clk2 or negedge rst)
+  begin
+    if (!rst) port_2_current_state <= PIDLE;
+    else      port_2_current_state <= port_2_next_state;
+  end
+
+  always @(*)
+  begin
+    port_2_next_state = port_2_current_state;
+
+    case (port_2_current_state)
+      PIDLE: begin
+        if (!port_2_empty) begin
+          raddr_port_2 = port_2_queue[port_2_ridx];
+          read_port_2_en = 0;
+          port_2_next_state = PBUSY;
+        end else
+          port_2_next_state = PIDLE;
+      end
+      PBUSY: begin
+        if (read_port_2_done) begin
+          read_port_2_en = 0;
+          iaddr = rptr;
+          idata = port_2_queue[port_2_ridx];
+          iwrite_en = 1;
+          port_2_next_state = PDONE;
+        end else
+          port_2_next_state = PBUSY;
+      end
+      PDONE: begin
+        iwrite_en = 0;
+        rptr = (rptr + 1) % DEPTH;
+        port_2_ridx = (port_2_ridx + 1) % DEPTH;
+        port_2_next_state = PIDLE;
+      end
+    endcase
+  end
+
+  // Port 3 FSM
+  always @(posedge clk2 or negedge rst)
+  begin
+    if (!rst) port_3_current_state <= IDLE;
+    else      port_3_current_state <= port_3_next_state;
+  end
+
+  always @(*)
+  begin
+    port_3_next_state = port_3_current_state;
+
+    case (port_3_current_state)
+      PIDLE: begin
+        if (!port_3_empty) begin
+          raddr_port_3 = port_3_queue[port_3_ridx];
+          read_port_3_en = 0;
+          port_3_next_state = PBUSY;
+        end else
+          port_3_next_state = PIDLE;
+      end
+      PBUSY: begin
+        if (read_port_3_done) begin
+          read_port_3_en = 0;
+          iaddr = rptr;
+          idata = port_3_queue[port_3_ridx];
+          iwrite_en = 1;
+          port_3_next_state = PDONE;
+        end else
+          port_3_next_state = PBUSY;
+      end
+      PDONE: begin
+        iwrite_en = 0;
+        rptr = (rptr + 1) % DEPTH;
+        port_3_ridx = (port_3_ridx + 1) % DEPTH;
+        port_3_next_state = PIDLE;
+      end
+    endcase
+  end
+
 endmodule

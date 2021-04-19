@@ -8,7 +8,7 @@ module fifo_idx_map #(parameter DEPTH = 3, WIDTH = 4, PTR_SZ = 2)
 		     (input read_en, write_en,
 		      input [(PTR_SZ-1):0] raddr, waddr,
 		      input [(WIDTH-1):0]  wdata,
-		      output [(WIDTH-1):0] rdata
+		      output reg [(WIDTH-1):0] rdata
 );
 
   reg [(WIDTH-1):0] memory [(DEPTH-1):0];
@@ -16,6 +16,6 @@ module fifo_idx_map #(parameter DEPTH = 3, WIDTH = 4, PTR_SZ = 2)
   always @(*)
   begin
     if (write_en) memory[waddr] = wdata;
-    if (read_en)  rdata = mem[raddr];
+    if (read_en)  rdata = memory[raddr];
   end
 endmodule
