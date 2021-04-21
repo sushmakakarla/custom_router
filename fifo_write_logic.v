@@ -2,15 +2,14 @@
 // Author: Vladislav Rykov
 
 // DEPTH     - FIFO size
-// UWIDTH    - FIFO entry unit width in bits
 // PTR_SZ    - FIFO entry index size in bits
-module fifo_write_logic #(parameter DEPTH = 3, UWIDTH = 8, PTR_SZ = 2)
-			(input clk, rst,
-			 input winc,
-			 input [(PTR_SZ-1):0] rq2_raddr,
-			 output reg wfull, write_en,
-			 output reg [(PTR_SZ-1):0] waddr,
-			 output reg [(PTR_SZ-1):0] waddr_gray
+module fifo_write_logic #(parameter DEPTH = 3, PTR_SZ = 2)
+			 (input clk, rst,
+			  input winc,
+			  input [(PTR_SZ-1):0] rq2_raddr,
+			  output reg wfull, write_en,
+			  output reg [(PTR_SZ-1):0] waddr,
+			  output reg [(PTR_SZ-1):0] waddr_gray
 );
   localparam IDLE = 2'b00, WRITE = 2'b01, FULL = 2'b10;
   reg [1:0] current_state, next_state;
@@ -44,7 +43,7 @@ module fifo_write_logic #(parameter DEPTH = 3, UWIDTH = 8, PTR_SZ = 2)
         else        next_state = WRITE;
       end
       FULL: begin
-        write_en = 0;
+        write_en_tmp = 0;
         if (!wfull_tmp) next_state = WRITE;
         else        next_state = FULL;
       end
