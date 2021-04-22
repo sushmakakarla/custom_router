@@ -6,7 +6,7 @@
 // UWIDTH    - FIFO entry unit width in bits
 // PTR_SZ    - FIFO entry index size in bits
 // PTR_IN_SZ - FIFO index within entry size in bits (ideally ceil(log2(WIDTH)) )
-module fifo_memory #(parameter DEPTH = 3, WIDTH = 11, UWIDTH = 8, PTR_SZ = 2, PTR_IN_SZ = 4)
+module fifo_memory #(parameter DEPTH = 4, WIDTH = 11, UWIDTH = 8, PTR_SZ = 2, PTR_IN_SZ = 4)
 		    (input read_en, input write_en,
 		     input [(PTR_SZ-1):0]      raddr,
 		     input [(PTR_IN_SZ-1):0]   raddr_in,

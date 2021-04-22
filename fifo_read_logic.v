@@ -3,19 +3,21 @@
 
 // DEPTH     - FIFO size
 // PTR_SZ    - FIFO entry index size in bits
-module fifo_read_logic #(parameter DEPTH = 3, PTR_SZ = 2)
+module fifo_read_logic #(parameter PTR_SZ = 2)
 			(input clk, rst,
 			 input rinc,
-			 input [(PTR_SZ-1):0] rq2_waddr,
+			 input [PTR_SZ:0] rq2_waddr,
 			 output reg rempty, read_en,
 			 output reg [(PTR_SZ-1):0] raddr,
-			 output reg [(PTR_SZ-1):0] raddr_gray
+			 output [PTR_SZ:0] raddr_gray
 );
   localparam IDLE = 2'b00, READ = 2'b01, EMPTY = 2'b10;
   reg [1:0] current_state, next_state;
   
-  reg rempty_tmp;
-  reg [(PTR_SZ-1):0] waddr, raddr_tmp;
+  reg [PTR_SZ:0] waddr, raddr_tmp;
+
+  assign raddr_gray = (raddr_tmp >> 1) ^ raddr_tmp;
+  assign rempty_tmp = (rq2_waddr == raddr_gray);
 
   reg [PTR_SZ:0] i;
 
@@ -57,26 +59,18 @@ module fifo_read_logic #(parameter DEPTH = 3, PTR_SZ = 2)
       read_en <= 0;
       rempty <= 0;
       raddr <= 0;
-      raddr_gray <= 0;
 
-      rempty_tmp = 0;
       raddr_tmp = 0;
     end else begin
       rempty <= rempty_tmp;
-      raddr <= raddr_tmp;
-      raddr_gray <= (raddr_tmp >> 1) ^ raddr_tmp;
+      raddr <= raddr_tmp[(PTR_SZ-1):0];
     end
   end
 
   // combinational blocks
   always @(rinc)
   begin
-    if (rinc && !rempty_tmp) raddr_tmp = (raddr_tmp + 1) % DEPTH;
-  end
-
-  always @(*)
-  begin
-    rempty_tmp = raddr_tmp == waddr;
+    if (rinc && !rempty_tmp) raddr_tmp = raddr_tmp + 1;
   end
 
   always @(rq2_waddr)

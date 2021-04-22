@@ -48,7 +48,7 @@ module fifo_fixture;
        #`CLK_1 waddr_in = 6; wdata = 15; winc = 1; // crc
        #`CLK_1 winc = 0;
        
-       /* 
+        
        // packet 2 
        #`CLK_1 winc = 0; waddr_in = 0; wdata = 100; // source_id
        #`CLK_1 waddr_in = 1; wdata = 10; // dest_id
@@ -58,7 +58,8 @@ module fifo_fixture;
        #`CLK_1 waddr_in = 5; wdata = 2; // data 3
        #`CLK_1 waddr_in = 6; wdata = 3; // data 4
        #`CLK_1 waddr_in = 7; wdata = 55; winc = 1; // crc
-       
+       #`CLK_1 winc = 0;
+
        // packet 3
        #`CLK_1 winc = 0; waddr_in = 0; wdata = 255; // source_id
        #`CLK_1 waddr_in = 1; wdata = 63; // dest_id
@@ -71,7 +72,7 @@ module fifo_fixture;
        #`CLK_1 waddr_in = 8; wdata = 55; winc = 1; // crc
        
        #`CLK_1 winc = 0;
-       */
+       
      end
      begin: checking_thread
        /* // checking fifo_memory
@@ -85,7 +86,7 @@ module fifo_fixture;
        */
 
        // cheching fifo_read_logic
-       for (j = 0; j < 24; j = j+1) begin
+       for (j = 0; j < 40; j = j+1) begin
          // 1. memory dump
          #(`CLK_1) for (i = 0; i < 11; i = i+1) 
                        $display("memory[0][%d] = %b [1][%d] = %b [2][%d] = %b", i, f.fm.memory[0][i], i, f.fm.memory[1][i], i, f.fm.memory[2][i]);
@@ -123,7 +124,7 @@ module fifo_fixture;
        $vcdpluson;
      end
      begin: ending_thread
-       #(24*`CLK_1) disable clock_1_thread; disable clock_2_thread; disable stimulus_thread; disable dve_thread;
+       #(40*`CLK_1) disable clock_1_thread; disable clock_2_thread; disable stimulus_thread; disable dve_thread;
      end
    join
    $finish;

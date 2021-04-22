@@ -3,19 +3,22 @@
 
 // DEPTH     - FIFO size
 // PTR_SZ    - FIFO entry index size in bits
-module fifo_write_logic #(parameter DEPTH = 3, PTR_SZ = 2)
+module fifo_write_logic #(parameter PTR_SZ = 2)
 			 (input clk, rst,
 			  input winc,
-			  input [(PTR_SZ-1):0] rq2_raddr,
+			  input [PTR_SZ:0] rq2_raddr,
 			  output reg wfull, write_en,
 			  output reg [(PTR_SZ-1):0] waddr,
-			  output reg [(PTR_SZ-1):0] waddr_gray
+			  output [PTR_SZ:0] waddr_gray
 );
   localparam IDLE = 2'b00, WRITE = 2'b01, FULL = 2'b10;
   reg [1:0] current_state, next_state;
   
-  reg wfull_tmp;
-  reg [(PTR_SZ-1):0] raddr, waddr_tmp;
+  reg [PTR_SZ:0] raddr, waddr_tmp;
+
+  assign waddr_gray = (waddr_tmp >> 1) ^ waddr_tmp;
+  assign wfull_tmp = (waddr_gray[PTR_SZ:(PTR_SZ-1)] == ~rq2_raddr[PTR_SZ:(PTR_SZ-1)]) &&
+                     (waddr_gray[(PTR_SZ-2):0] == rq2_raddr[(PTR_SZ-2):0]);
 
   reg [PTR_SZ:0] i;
 
@@ -58,26 +61,18 @@ module fifo_write_logic #(parameter DEPTH = 3, PTR_SZ = 2)
       write_en <= 0;
       wfull <= 0;
       waddr <= 0;
-      waddr_gray <= 0;
 
-      wfull_tmp = 0;
       waddr_tmp = 0;
     end else begin
       wfull <= wfull_tmp;
-      waddr <= waddr_tmp;
-      waddr_gray <= (waddr_tmp >> 1) ^ waddr_tmp;
+      waddr <= waddr_tmp[(PTR_SZ-1):0];
     end
   end
 
   // combinational blocks
-  always @(*)
-  begin
-    wfull_tmp = ((waddr_tmp + 1) % DEPTH) == raddr;
-  end
-
   always @(winc)
   begin
-    if (winc && !wfull_tmp) waddr_tmp = (waddr_tmp + 1) % DEPTH;
+    if (winc && !wfull_tmp) waddr_tmp = waddr_tmp + 1;
   end
 
   always @(rq2_raddr)
