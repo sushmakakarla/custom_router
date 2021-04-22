@@ -14,7 +14,7 @@ module fifo_read_logic #(parameter DEPTH = 3, PTR_SZ = 2)
   localparam IDLE = 2'b00, READ = 2'b01, EMPTY = 2'b10;
   reg [1:0] current_state, next_state;
   
-  reg rempty_tmp, read_en_tmp;
+  reg rempty_tmp;
   reg [(PTR_SZ-1):0] waddr, raddr_tmp;
 
   reg [PTR_SZ:0] i;
@@ -34,7 +34,6 @@ module fifo_read_logic #(parameter DEPTH = 3, PTR_SZ = 2)
     case (current_state)
       IDLE: begin
         read_en = 0;
-        if (!rempty_tmp) next_state = READ;
         if (!rempty_tmp) next_state = READ;
         else             next_state = IDLE;
       end
@@ -75,12 +74,10 @@ module fifo_read_logic #(parameter DEPTH = 3, PTR_SZ = 2)
     if (rinc && !rempty_tmp) raddr_tmp = (raddr_tmp + 1) % DEPTH;
   end
 
-  /*
   always @(*)
   begin
     rempty_tmp = raddr_tmp == waddr;
   end
-  */
 
   always @(rq2_waddr)
     for (i = 0; i < PTR_SZ; i=i+1)

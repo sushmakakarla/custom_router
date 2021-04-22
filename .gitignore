@@ -5,3 +5,4 @@ csrc/
 ucli.key
 vcdplus.vpd
 *.swp
+.nfs*
