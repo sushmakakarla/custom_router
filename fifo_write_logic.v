@@ -20,8 +20,6 @@ module fifo_write_logic #(parameter PTR_SZ = 2)
   assign wfull_tmp = (waddr_gray[PTR_SZ:(PTR_SZ-1)] == ~rq2_raddr[PTR_SZ:(PTR_SZ-1)]) &&
                      (waddr_gray[(PTR_SZ-2):0] == rq2_raddr[(PTR_SZ-2):0]);
 
-  reg [PTR_SZ:0] i;
-
   // FSM sequential block
   always @(posedge clk or negedge rst)
   begin
@@ -74,9 +72,5 @@ module fifo_write_logic #(parameter PTR_SZ = 2)
   begin
     if (winc && !wfull_tmp) waddr_tmp = waddr_tmp + 1;
   end
-
-  always @(rq2_raddr)
-    for (i = 0; i < PTR_SZ; i=i+1)
-       raddr[i] = ^(rq2_raddr >> i);
 
 endmodule

@@ -19,8 +19,6 @@ module fifo_read_logic #(parameter PTR_SZ = 2)
   assign raddr_gray = (raddr_tmp >> 1) ^ raddr_tmp;
   assign rempty_tmp = (rq2_waddr == raddr_gray);
 
-  reg [PTR_SZ:0] i;
-
   // FSM sequential block
   always @(posedge clk or negedge rst)
   begin
@@ -72,9 +70,5 @@ module fifo_read_logic #(parameter PTR_SZ = 2)
   begin
     if (rinc && !rempty_tmp) raddr_tmp = raddr_tmp + 1;
   end
-
-  always @(rq2_waddr)
-    for (i = 0; i < PTR_SZ; i=i+1)
-       waddr[i] = ^(rq2_waddr >> i);
 
 endmodule
