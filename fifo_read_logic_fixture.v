@@ -1,7 +1,5 @@
 // fifo_read_logic_fixture.v
 // Author: Vladislav Rykov
-//
-// TODO: solve unused fifo position index issue (wfull at last position)
 
 `include "fifo_read_logic.v"
 

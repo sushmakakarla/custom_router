@@ -1,7 +1,6 @@
 // fifo_write_logic.v
 // Author: Vladislav Rykov
 
-// DEPTH     - FIFO size
 // PTR_SZ    - FIFO entry index size in bits
 module fifo_write_logic #(parameter PTR_SZ = 2)
 			 (input clk, rst,
