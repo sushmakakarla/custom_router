@@ -30,21 +30,21 @@ module fifo_read_logic #(parameter DEPTH = 3, PTR_SZ = 2)
   always @(current_state or rempty_tmp)
   begin
     next_state = current_state;
-    read_en_tmp = 0;
 
     case (current_state)
       IDLE: begin
-        read_en_tmp = 0;
+        read_en = 0;
+        if (!rempty_tmp) next_state = READ;
         if (!rempty_tmp) next_state = READ;
         else             next_state = IDLE;
       end
       READ: begin
-        read_en_tmp = 1;
+        read_en = 1;
         if (rempty_tmp)  next_state = EMPTY;
         else             next_state = READ;
       end
       EMPTY: begin
-        read_en_tmp = 0;
+        read_en = 0;
         if (!rempty_tmp) next_state = READ;
         else             next_state = EMPTY;
       end
@@ -60,11 +60,9 @@ module fifo_read_logic #(parameter DEPTH = 3, PTR_SZ = 2)
       raddr <= 0;
       raddr_gray <= 0;
 
-      read_en_tmp = 0;
       rempty_tmp = 0;
       raddr_tmp = 0;
     end else begin
-      read_en <= read_en_tmp;
       rempty <= rempty_tmp;
       raddr <= raddr_tmp;
       raddr_gray <= (raddr_tmp >> 1) ^ raddr_tmp;
@@ -72,11 +70,17 @@ module fifo_read_logic #(parameter DEPTH = 3, PTR_SZ = 2)
   end
 
   // combinational blocks
+  always @(rinc)
+  begin
+    if (rinc && !rempty_tmp) raddr_tmp = (raddr_tmp + 1) % DEPTH;
+  end
+
+  /*
   always @(*)
   begin
     rempty_tmp = raddr_tmp == waddr;
-    if (rinc && !rempty_tmp) raddr_tmp = (raddr_tmp + 1) % DEPTH;
   end
+  */
 
   always @(rq2_waddr)
     for (i = 0; i < PTR_SZ; i=i+1)
