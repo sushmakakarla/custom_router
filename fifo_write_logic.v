@@ -16,7 +16,8 @@ module fifo_write_logic #(parameter DEPTH = 3, PTR_SZ = 2)
   
   reg wfull_tmp, write_en_tmp;
   reg [(PTR_SZ-1):0] raddr, waddr_tmp;
-  assign [(PTR_SZ-1):0] waddr_gray_tmp = (waddr_tmp >> 1) ^ waddr_tmp;
+
+  reg [PTR_SZ:0] i;
 
   // FSM sequential block
   always @(posedge clk or negedge rst)
@@ -29,24 +30,21 @@ module fifo_write_logic #(parameter DEPTH = 3, PTR_SZ = 2)
   always @(current_state or wfull_tmp)
   begin
     next_state = current_state;
-    write_en_tmp = 0;
 
     case (current_state)
       IDLE: begin
-        write_en_tmp = 0;
         if (!wfull_tmp) next_state = WRITE;
         else        next_state = IDLE;
       end
       WRITE: begin
-        write_en_tmp = 1;
         if (wfull_tmp)  next_state = FULL;
         else        next_state = WRITE;
       end
       FULL: begin
-        write_en_tmp = 0;
         if (!wfull_tmp) next_state = WRITE;
         else        next_state = FULL;
       end
+    endcase
   end
 
   // sequential block
@@ -57,11 +55,15 @@ module fifo_write_logic #(parameter DEPTH = 3, PTR_SZ = 2)
       wfull <= 0;
       waddr <= 0;
       waddr_gray <= 0;
+
+      write_en_tmp = 0;
+      wfull_tmp = 0;
+      waddr_tmp = 0;
     end else begin
       write_en <= write_en_tmp;
       wfull <= wfull_tmp;
       waddr <= waddr_tmp;
-      waddr_gray <= waddr_gray_tmp;
+      waddr_gray <= (waddr_tmp >> 1) ^ waddr_tmp;
     end
   end
 
@@ -69,6 +71,11 @@ module fifo_write_logic #(parameter DEPTH = 3, PTR_SZ = 2)
   always @(*)
   begin
     wfull_tmp = ((waddr_tmp + 1) % DEPTH) == raddr;
+    write_en_tmp = !wfull_tmp;
+  end
+
+  always @(winc)
+  begin
     if (winc && !wfull_tmp) waddr_tmp = (waddr_tmp + 1) % DEPTH;
   end
 

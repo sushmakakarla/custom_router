@@ -16,7 +16,8 @@ module fifo_read_logic #(parameter DEPTH = 3, PTR_SZ = 2)
   
   reg rempty_tmp, read_en_tmp;
   reg [(PTR_SZ-1):0] waddr, raddr_tmp;
-  assign [(PTR_SZ-1):0] raddr_gray_tmp = (raddr_tmp >> 1) ^ raddr_tmp;
+
+  reg [PTR_SZ:0] i;
 
   // FSM sequential block
   always @(posedge clk or negedge rst)
@@ -26,7 +27,7 @@ module fifo_read_logic #(parameter DEPTH = 3, PTR_SZ = 2)
   end
 
   // FSM combinational block
-  always @(current_state or wfull_tmp)
+  always @(current_state or rempty_tmp)
   begin
     next_state = current_state;
     read_en_tmp = 0;
@@ -47,6 +48,7 @@ module fifo_read_logic #(parameter DEPTH = 3, PTR_SZ = 2)
         if (!rempty_tmp) next_state = READ;
         else             next_state = EMPTY;
       end
+    endcase
   end
 
   // sequential block
@@ -57,11 +59,15 @@ module fifo_read_logic #(parameter DEPTH = 3, PTR_SZ = 2)
       rempty <= 0;
       raddr <= 0;
       raddr_gray <= 0;
+
+      read_en_tmp = 0;
+      rempty_tmp = 0;
+      raddr_tmp = 0;
     end else begin
       read_en <= read_en_tmp;
       rempty <= rempty_tmp;
       raddr <= raddr_tmp;
-      raddr_gray <= raddr_gray_tmp;
+      raddr_gray <= (raddr_tmp >> 1) ^ raddr_tmp;
     end
   end
 
@@ -72,7 +78,7 @@ module fifo_read_logic #(parameter DEPTH = 3, PTR_SZ = 2)
     if (rinc && !rempty_tmp) raddr_tmp = (raddr_tmp + 1) % DEPTH;
   end
 
-  always @(rq2_raddr)
+  always @(rq2_waddr)
     for (i = 0; i < PTR_SZ; i=i+1)
        waddr[i] = ^(rq2_waddr >> i);
 

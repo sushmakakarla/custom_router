@@ -13,7 +13,7 @@ module fifo_memory #(parameter DEPTH = 3, WIDTH = 11, UWIDTH = 8, PTR_SZ = 2, PT
 		     input [(PTR_SZ-1):0]      waddr,
 		     input [(PTR_IN_SZ-1):0]   waddr_in,
 		     input [(UWIDTH-1):0]      wdata,
-		     output reg [(UWIDTH-1):0] rdata,
+		     output reg [(UWIDTH-1):0] rdata
 );
 
   reg [(UWIDTH-1):0] memory [(DEPTH-1):0][(WIDTH-1):0];

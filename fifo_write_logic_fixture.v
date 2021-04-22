@@ -1,28 +1,28 @@
-`include "fifo.v"
+// fifo_write_logic_fixture.v
+// Author: Vladislav Rykov
+//
+// TODO: solve unused fifo position index issue (wfull at last position)
+
+`include "fifo_write_logic.v"
 
 `define CLK_1     5 // for test ease
-//`define CLK_1     2 // F=250KHz T=4us
-`define CLK_2     5 // F=100KHz T=10us
 
 `define DEPTH     3
-`define WIDTH     11
-`define UWIDTH    8
 `define PTR_SZ 	  2
-`define PTR_IN_SZ 4
 
-module fifo_fixture;
-  reg clk1, clk2, rst;
+module fifo_write_logic_fixture;
+  reg clk1, rst;
 
-  reg winc, rinc;
-  reg [(`PTR_IN_SZ-1):0] waddr_in, raddr_in;
-  reg [(`UWIDTH-1):0] wdata;
-  wire [(`UWIDTH-1):0] rdata;
-  wire wfull, rempty;
+  reg winc;
+  reg [(`PTR_SZ-1):0] rq2_raddr;
+  wire [(`PTR_SZ-1):0] waddr, waddr_gray;
+  wire wfull, write_en;
 
   reg [(4-1):0] i, k;
   reg [8:0] j;
 
-  fifo #(.DEPTH(`DEPTH), .WIDTH(`WIDTH), .UWIDTH(`UWIDTH), .PTR_SZ(`PTR_SZ), .PTR_IN_SZ(`PTR_IN_SZ)) f (.clk1(clk1), .clk2(clk2), .rst(rst), .winc(winc), .rinc(rinc), .waddr_in(waddr_in), .raddr_in(raddr_in), .wdata(wdata), .rdata(rdata), .wfull(wfull), .rempty(rempty));
+  
+  fifo_write_logic #(.DEPTH(`DEPTH), .PTR_SZ(`PTR_SZ)) fwl (.clk(clk1), .rst(rst), .winc(winc), .rq2_raddr(rq2_raddr), .wfull(wfull), .write_en(write_en), .waddr(waddr), .waddr_gray(waddr_gray));
 
   initial begin
    fork
@@ -30,24 +30,28 @@ module fifo_fixture;
        clk1 = 1'b0;
        forever #`CLK_1 clk1 =~ clk1;
      end
-     begin: clock_2_thread
-       clk2 = 1'b0;
-       forever #`CLK_2 clk2 =~ clk2;
-     end
      begin: stimulus_thread
-       rst = 0; winc = 0; rinc = 0; waddr_in = 0; raddr_in = 0;
-       wdata = 0;
+       rst = 0; winc = 0; rq2_raddr = 0;
        // packet 1
-       #`CLK_1 rst = 1; 
-       #(`CLK_1*2) waddr_in = 0; wdata = 10; // source_id
-       #`CLK_1 waddr_in = 1; wdata = 160; // dest_id
-       #`CLK_1 waddr_in = 2; wdata = 3; // size
-       #`CLK_1 waddr_in = 3; wdata = 0; // data 1
-       #`CLK_1 waddr_in = 4; wdata = 1; // data 2
-       #`CLK_1 waddr_in = 5; wdata = 2; // data 3
-       #`CLK_1 waddr_in = 6; wdata = 15; winc = 1; // crc
+       #`CLK_1 rst = 1;
+       #(`CLK_1*2) winc = 1;
        #`CLK_1 winc = 0;
-       
+       #`CLK_1 winc = 1;
+       #`CLK_1 winc = 0;
+       #`CLK_1 winc = 1;
+       #`CLK_1 winc = 0;
+       $display("no reaction at winc toggle");
+       #`CLK_1 winc = 1;
+       #`CLK_1 winc = 0;
+       #`CLK_1 rq2_raddr = 1;
+       #(`CLK_1*2) winc = 1;
+       #`CLK_1 winc = 0;
+       #`CLK_1 rq2_raddr = 0;
+       #`CLK_1 winc = 1;
+       #`CLK_1 winc = 0;
+       #`CLK_1 winc = 1;
+       #`CLK_1 winc = 0;
+    
        /* 
        // packet 2 
        #`CLK_1 winc = 0; waddr_in = 0; wdata = 100; // source_id
@@ -87,13 +91,6 @@ module fifo_fixture;
        // cheching fifo_read_logic
        for (j = 0; j < 24; j = j+1) begin
          // 1. memory dump
-         #(`CLK_1) for (i = 0; i < 11; i = i+1) 
-                       $display("memory[0][%d] = %b [1][%d] = %b [2][%d] = %b", i, f.fm.memory[0][i], i, f.fm.memory[1][i], i, f.fm.memory[2][i]);
-         
-         // fifo_write_logic
-         $display("Write Logic\ncurrent_state = %d, next_state = %d, winc = %d rq2_raddr = %d, wfull = %d, write_en = %d, waddr = %d, waddr_gray = %d", f.fwl.current_state, f.fwl.next_state, f.fwl.winc, f.fwl.rq2_raddr, f.fwl.wfull, f.fwl.write_en, f.fwl.waddr, f.fwl.waddr_gray);
-                  
-
 
          /*
          // 2. dispatcher monitor
@@ -123,13 +120,13 @@ module fifo_fixture;
        $vcdpluson;
      end
      begin: ending_thread
-       #(24*`CLK_1) disable clock_1_thread; disable clock_2_thread; disable stimulus_thread; disable dve_thread;
+       #(24*`CLK_1) disable clock_1_thread; disable stimulus_thread; disable dve_thread;
      end
    join
    $finish;
   end
   
   initial
-    $monitor("Time %d, clk = %b rst = %b", $time, clk2, rst);
+    $monitor("Time %3d, clk = %b rst = %b, cs = %d, ns = %d, winc = %d, rq2_raddr = %d, wfull = %d, wfull_tmp = %d, write_en = %d, write_en_tmp = %d, waddr = %d, waddr_tmp = %d, waddr_gray = %d, raddr = %d", $time, clk1, rst, fwl.current_state, fwl.next_state, fwl.winc, fwl.rq2_raddr, fwl.wfull, fwl.wfull_tmp, fwl.write_en, fwl.write_en_tmp, fwl.waddr, fwl.waddr_tmp, fwl.waddr_gray, fwl.raddr);
 
 endmodule
