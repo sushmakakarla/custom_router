@@ -5,8 +5,7 @@ module DFF1 #(parameter PTR_SZ=2)
              (input  rst,
               input  clk,
               input  [PTR_SZ:0] addr_gray,
-              output reg [PTR_SZ:0] rq2_addr,
-              output reg  [PTR_SZ:0] rq1_addr
+              output reg [PTR_SZ:0] rq2_addr, rq1_addr
 );
  
  //synchronizing the read pointer into the write clock domain 
@@ -32,7 +31,7 @@ module synchronizer #(parameter PTR_SZ=2)
   wire [PTR_SZ:0] rq1_waddr, rq1_raddr;
 
   DFF1 #(.PTR_SZ(PTR_SZ)) w2rdff1 (.rst(rst), .clk(clk2), .addr_gray(waddr_gray), .rq1_addr(rq1_waddr), .rq2_addr(rq2_waddr));
-  DFF1 #(.PTR_SZ(PTR_SZ)) r2qdff1 (.rst(rst), .clk(clk1), .addr_gray(raddr_gray), .rq1_addr(rq1_raddr), .rq2_addr(rq2_raddr));
+  DFF1 #(.PTR_SZ(PTR_SZ)) r2wdff1 (.rst(rst), .clk(clk1), .addr_gray(raddr_gray), .rq1_addr(rq1_raddr), .rq2_addr(rq2_raddr));
 
 endmodule
 
