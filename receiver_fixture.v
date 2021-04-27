@@ -1,3 +1,5 @@
+//Author Sushma
+
 `include "packet_receiver.v"
 `define CLK_1     5 // for test ease
 module receiver_fixture;
