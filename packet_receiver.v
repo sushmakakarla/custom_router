@@ -1,6 +1,8 @@
-module packet_receiver(input clk1,reset,packet_valid_i,
+//Author Sushma
+module packet_receiver(input clk1,rst,packet_valid_i,
 				  input [7:0] pdata,
-				  input wfull_port_1,wfull_port_2,wfull_port_3,stop_packet_send, 
+				  input wfull_port_1,wfull_port_2,wfull_port_3,
+                  output reg stop_packet_send, 
                   output reg FIFO_EN_1,FIFO_EN_2,FIFO_EN_3,
 				  output winc_port_1,winc_port_2,winc_port_3,waddr_in_port_1,waddr_in_port_2,waddr_in_port_3,
                   output reg [7:0]wdata_port_1,wdata_port_2,wdata_port_3
@@ -28,14 +30,22 @@ always @(*)
 		temp2 <=temp1;
 	end
 //--------------------------------------------------------------------------------------------------------------------------------------------
-// reset logic for states
+// rst logic for states
 always@(posedge clk1)
 	begin
-		if(!reset)
-				present_state <=IDLE;  // hard reset
+		if(!rst)
+				present_state <=IDLE;  // hard rst
 		else
 				present_state <=next_state;
 	end
+//--------------------------------------------------------------------------------------------------------------------------------------------
+// stop packet send enable and disable block
+always@(posedge clk1)
+    begin 
+        if((wfull_port_1==1'b1)|(wfull_port_2==1'b1)|(wfull_port_3==1'b1))
+            stop_packet_send <=1'b1;
+        else stop_packet_send <=1'b0;
+    end
 //-------------------------------------------------------------------------------------------------------------------------------------------	
 always@(*)
 	begin
@@ -76,7 +86,7 @@ always@(*)
                       FIFO_EN_3=1'b1;
 					  next_state <=SIZE; end
 				else
-					next_state <=DST;                //********** We need a software reset feature in our design
+					next_state <=DST;                //********** We need a software rst feature in our design
 			end
 //-----------------------------------------------------------------------------------------------------------------------------------------
 		SIZE:                        //Loading Size state
