@@ -1,9 +1,8 @@
 //Author Sushma
 module packet_receiver(input clk1,rst,packet_valid_i,
-				  input [7:0] pdata,
+				  input [7:0]pdata,
 				  input wfull_port_1,wfull_port_2,wfull_port_3,
                   output reg stop_packet_send, 
-                  output reg FIFO_EN_1,FIFO_EN_2,FIFO_EN_3,
 				  output winc_port_1,winc_port_2,winc_port_3,waddr_in_port_1,waddr_in_port_2,waddr_in_port_3,
                   output reg [7:0]wdata_port_1,wdata_port_2,wdata_port_3
                   );
@@ -17,11 +16,13 @@ module packet_receiver(input clk1,rst,packet_valid_i,
 			CRC    	    =	4'b0110,
 			sCRC	    =	4'b0111,
 			WAIT	    =	4'b1000;
-			
+
+reg trusted;                                       //Trusted packet 
+reg [1:0] dest_p;                                  //Destination port
 reg [3:0] present_state, next_state;
-reg [7:0] temp1, temp2;                        // temporary registers for storing input packet data byte 
-reg [2:0]x;                                   //variable used for packet size
-reg [2:0]k;                                   //variable used for count operation
+reg [7:0] temp1, temp2;                            //temporary registers for storing input packet data byte 
+reg [2:0]x;                                        //variable used for packet size
+reg [2:0]k;                                        //variable used for count operation
 //-------------------------------------------------------------------------------------------------------------------------------------------
 //temp1 logic
 always @(*)
@@ -31,16 +32,25 @@ always @(*)
 	end
 //--------------------------------------------------------------------------------------------------------------------------------------------
 // rst logic for states
-always@(posedge clk1)
+always@(posedge clk1 or negedge rst)
 	begin
 		if(!rst)
-				present_state <=IDLE;  // hard rst
+				present_state <=IDLE;  
 		else
 				present_state <=next_state;
 	end
 //--------------------------------------------------------------------------------------------------------------------------------------------
+//reset all regesters
+always@(negedge rst)
+begin
+ trusted=0;    
+ dest_p=0;                             
+ temp1=0; temp2=0;                       
+ x=0;                                   
+ k=0;   end
+//--------------------------------------------------------------------------------------------------------------------------------------------
 // stop packet send enable and disable block
-always@(posedge clk1)
+always@(posedge clk1 or negedge rst)
     begin 
         if((wfull_port_1==1'b1)|(wfull_port_2==1'b1)|(wfull_port_3==1'b1))
             stop_packet_send <=1'b1;
@@ -50,141 +60,142 @@ always@(posedge clk1)
 always@(*)
 	begin
 		case(present_state)
-		IDLE:   // decode address state 
+		IDLE:                                               // decode address state 
 		begin
 			if(packet_valid_i==1'b1 && stop_packet_send==1'b0)
-                    // ******************pdata should be stored
-					next_state<=SRC;   //load source id to test for trusted source
+			next_state<=SRC;                                //load source id to test for trusted source
 			else 
-				next_state<=IDLE;	   // same state
+				next_state<=IDLE;	                        // same state
 		end
 //------------------------------------------------------------------------------------------------------------------------------------------
-		SRC: 			// Loading Source id state
+		SRC: 			                                    // Loading Source id state
 		begin	
             if((pdata==TS1) | (pdata==TS2) | (pdata==TS3))
                 begin temp1<=pdata;
+                      trusted <=1;
                       next_state<=DST; end
-            else 
+            else
+                trusted <=0; 
                 next_state<=WAIT;
+
 		end
 //-----------------------------------------------------------------------------------------------------------------------------------------
-		DST:                    // Loading Destination id state
-		begin
-			if((8'd0<=pdata) && (pdata<=8'd127))
+		DST:                                                 // Loading Destination id state
+		begin if(trusted ==1) begin
+			  if((8'd0<=pdata) && (pdata<=8'd127))
                 begin wdata_port_1[waddr_in_port_1]<=temp1;
+                      dest_p<=1;
                       temp1<=pdata;
-                      FIFO_EN_1=1'b1;
 					  next_state<=SIZE; end
-	        else if((8'd128<=pdata) && (pdata<=8'd195)) 
+	          else if((8'd128<=pdata) && (pdata<=8'd195)) 
                 begin wdata_port_2[waddr_in_port_2] <=temp1;
+                      dest_p<=2;
                       temp1 <=pdata;
-                      FIFO_EN_2=1'b1;
 					  next_state <=SIZE; end        
-            else if((8'd196<=pdata) && (pdata<=8'd255)) 
+              else if((8'd196<=pdata) && (pdata<=8'd255)) 
                 begin wdata_port_3[waddr_in_port_3] <=temp1;
+                      dest_p<=3;
                       temp1 <=pdata;
-                      FIFO_EN_3=1'b1;
-					  next_state <=SIZE; end
-				else
-					next_state <=DST;                //********** We need a software rst feature in our design
+					  next_state <=SIZE; end end
+			  else
+					next_state <= SIZE;
 			end
 //-----------------------------------------------------------------------------------------------------------------------------------------
-		SIZE:                        //Loading Size state
+		SIZE:                                             //Loading Size state
 		begin
-            if (FIFO_EN_1==1'b1)
+            if (dest_p==1 && trusted==1)
              begin wdata_port_1[waddr_in_port_1]<=temp1;  //Dest id byte is transmitted 
-                   temp1<=pdata;                         //Size byte is stored in temp1
-                   k<=temp1[2:0];                        //K variable is used to know data size and count decrement operation
-				   x<=k+4;                             //Size of packet is calculated for future use
+                   temp1<=pdata;                          //Size byte is stored in temp1
+                   k<=temp1[2:0];                         //K variable is used to know data size and count decrement operation
+				   x<=k+4;                                //Size of packet is calculated for future use
                    next_state<=DATA; end    
-            else if (FIFO_EN_2==1'b1)
+            else if (dest_p==2 && trusted==1)
              begin wdata_port_2[waddr_in_port_2]<=temp1;  //Dest id byte is transmitted 
-                   temp1<=pdata;                         //Size byte is stored in temp1
-                   k<=temp1[2:0];                        //K variable is used to know data size and count decrement operation
-				   x<=k+4;                             //Size of packet is calculated for future use			  	   
+                   temp1<=pdata;                          //Size byte is stored in temp1
+                   k<=temp1[2:0];                         //K variable is used to know data size and count decrement operation
+				   x<=k+4;                                //Size of packet is calculated for future use			  	   
                    next_state<=DATA; end  
-			else if (FIFO_EN_3==1'b1)
+			else if (dest_p==3 && trusted==1)
              begin wdata_port_3[waddr_in_port_3]<=temp1;  //Dest id byte is transmitted 
-                   temp1<=pdata;                         //Size byte is stored in temp1
-                   k<=temp1[2:0];                        //K variable is used to know data size and count decrement operation
-				   x<=k+4;                             //Size of packet is calculated for future use      
+                   temp1<=pdata;                          //Size byte is stored in temp1
+                   k<=temp1[2:0];                         //K variable is used to know data size and count decrement operation
+				   x<=k+4;                                //Size of packet is calculated for future use      
+                   next_state<=DATA; end  
+            else   begin k<=temp1[2:0];                     
+				   x<=k+4;                             			  	   
                    next_state<=DATA; end  
 		end
 //--------------------------------------------------------------------------------------------------------------------------------------------
-		DATA:			            //Loading data state
+		DATA:			                                  //Loading data state
 		begin
-			if (FIFO_EN_1==1'b1)
+			if (dest_p==1 && trusted==1)
              begin wdata_port_1[waddr_in_port_1]<=temp1;  //Size byte is transmitted to memory and later data bytes are transferred
-                   temp1<=pdata;                         //Data bytes are stored in temp1 one after the other
-                   k<=k-1;                              //K is decremented until all data enters into receiver
-                   if(k==0) next_state<=CRC;            //If last data byte enters into receiver go to next state
+                   temp1<=pdata;                          //Data bytes are stored in temp1 one after the other
+                   k<=k-1;                                //K is decremented until all data enters into receiver
+                   if(k==0) next_state<=CRC;              //If last data byte enters into receiver go to next state
                    else next_state<=DATA;
              end
-			else if(FIFO_EN_2==1'b1)
-             begin wdata_port_2[waddr_in_port_2]<=temp1;  ///Size byte is transmitted to memory and later data bytes are transferred
-                   temp1<=pdata;                         //Data bytes are stored in temp1 one after the other
-                   k<=k-1;                              //K is decremented until all data enters into receiver
-                   if(k==0) next_state<=CRC;            //If last data byte enters into receiver go to next state
+			else if(dest_p==2 && trusted==1)
+             begin wdata_port_2[waddr_in_port_2]<=temp1;   //Size byte is transmitted to memory and later data bytes are transferred
+                   temp1<=pdata;                           //Data bytes are stored in temp1 one after the other
+                   k<=k-1;                                 //K is decremented until all data enters into receiver
+                   if(k==0) next_state<=CRC;               //If last data byte enters into receiver go to next state
                    else next_state<=DATA;
              end
-            else if (FIFO_EN_3==1'b1)
+            else if (dest_p==3 && trusted==1)
              begin wdata_port_3[waddr_in_port_3]<=temp1;  //Size byte is transmitted to memory and later data bytes are transferred
-                   temp1<=pdata;                         //Data bytes are stored in temp1 one after the other
-                   k<=k-1;                              //K is decremented until all data enters into receiver
-                   if(k==0) next_state<=CRC;            //If last data byte enters into receiver go to next state
+                   temp1<=pdata;                          //Data bytes are stored in temp1 one after the other
+                   k<=k-1;                                //K is decremented until all data enters into receiver
+                   if(k==0) next_state<=CRC;              //If last data byte enters into receiver go to next state
                    else next_state<=DATA;
              end
+             else begin  k<=k-1;                        
+                   if(k==0) next_state<=CRC;            
+                   else next_state<=DATA; end
 		end
 //-------------------------------------------------------------------------------------------------------------------------------------------
-		CRC:         	// Loading CRC byte state
+		CRC:         	                                     // Loading CRC byte state
 		begin
-				if (FIFO_EN_1==1'b1)
+				if (dest_p==1 && trusted==1)
                  begin wdata_port_1[waddr_in_port_1]<=temp1;  //Last data byte is transferred to memory 
                        temp1<=pdata;                         //CRC byte is stored in temp1
 				       next_state<=sCRC;
 			     end
-                else if (FIFO_EN_2==1'b1)
+                else if (dest_p==2 && trusted==1)
                  begin wdata_port_2[waddr_in_port_2]<=temp1;  //Last data byte is transferred to memory 
                        temp1<=pdata;                         //CRC byte is stored in temp1
 				       next_state<=sCRC;
 			     end
-                else if (FIFO_EN_3==1'b1)
+                else if (dest_p==3 && trusted==1)
                  begin wdata_port_3[waddr_in_port_3]<=temp1;  //Last data byte is transferred to memory 
                        temp1<=pdata;                         //CRC byte is stored in temp1
 				       next_state<=sCRC;
 			     end
+                 else next_state<=sCRC;
         end
 //-------------------------------------------------------------------------------------------------------------------------------------------
-		sCRC:                          // transfer CRC state
+		sCRC:                                                // transfer CRC state
 		begin
                 if(packet_valid_i==1'b1)
                 begin
-                  if(FIFO_EN_1==1'b1) begin
+                  if(dest_p==1) begin
                   wdata_port_1[waddr_in_port_1]<=temp1;
                   temp1<=pdata;
                   next_state<=SRC; end   
-                  else if(FIFO_EN_2==1'b1) begin
+                  else if(dest_p==2) begin
                   wdata_port_2[waddr_in_port_2]<=temp1;
                   temp1<=pdata;
                   next_state<=SRC; end
-                  else if(FIFO_EN_3==1'b1) begin
+                  else if(dest_p==3) begin
                   wdata_port_3[waddr_in_port_3]<=temp1;
                   temp1<=pdata;
-                  next_state<=SRC; end         //********store crc and go to SRC state to test SRC_id of next packet
+                  next_state<=SRC; end         
                 end   
                 else 
                    next_state<=IDLE;
 		end
-//-------------------------------------------------------------------------------------------------------------------------------------------
-		WAIT:			// check parity error
-		begin
-				if (packet_valid_i==1'b0)
-					next_state<=IDLE;
-				else
-					next_state<=WAIT;
-		end
 //--------------------------------------------------------------------------------------------------------------------------------------------
-		default:					//default state
+		default:					                        //default state
 				next_state<=IDLE; 
  		endcase								              	// state machine completed
     end
