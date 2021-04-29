@@ -1,18 +1,18 @@
 //Author Sushma
 module packet_receiver(input clk1,rst,packet_valid_i,
-				  input [7:0]pdata,
-				  input wfull_port_1,wfull_port_2,wfull_port_3,
-                  output reg stop_packet_send, 
-				  output winc_port_1,winc_port_2,winc_port_3,waddr_in_port_1,waddr_in_port_2,waddr_in_port_3,
-                  output reg [7:0]wdata_port_1,wdata_port_2,wdata_port_3
-                  );
+		       input [7:0]pdata,
+	               input wfull_port_1,wfull_port_2,wfull_port_3,
+                       output reg stop_packet_send, 
+		       output winc_port_1,winc_port_2,winc_port_3,waddr_in_port_1,waddr_in_port_2,waddr_in_port_3,
+                       output reg [7:0]wdata_port_1,wdata_port_2,wdata_port_3
+                       );
 				  
  parameter TS1=8'd0,TS2=8'd1,TS3=8'd2;
- parameter  IDLE		=	4'b0001,
-			SRC		    =	4'b0010,
-			DST		    =	4'b0011,
-			SIZE		=	4'b0100,
-			DATA		=	4'b0101,
+ parameter              IDLE	    =	4'b0001,
+			SRC	    =	4'b0010,
+			DST	    =	4'b0011,
+			SIZE	    =	4'b0100,
+			DATA	    =	4'b0101,
 			CRC    	    =	4'b0110,
 			sCRC	    =	4'b0111,
 			WAIT	    =	4'b1000;
@@ -62,44 +62,53 @@ always@(*)
 		case(present_state)
 		IDLE:                                               // decode address state 
 		begin
-			if(packet_valid_i==1'b1 && stop_packet_send==1'b0)
-			next_state<=SRC;                                //load source id to test for trusted source
-			else 
-				next_state<=IDLE;	                        // same state
+		   if(packet_valid_i==1'b1 && stop_packet_send==1'b0)
+		      next_state<=SRC;                                //load source id to test for trusted source
+		   else 
+		      next_state<=IDLE;	                        // same state
 		end
 //------------------------------------------------------------------------------------------------------------------------------------------
 		SRC: 			                                    // Loading Source id state
 		begin	
-            if((pdata==TS1) | (pdata==TS2) | (pdata==TS3))
-                begin temp1<=pdata;
-                      trusted <=1;
-                      next_state<=DST; end
-            else
-                trusted <=0; 
-                next_state<=WAIT;
+                  if((pdata==TS1) | (pdata==TS2) | (pdata==TS3))
+                  begin temp1<=pdata;
+                        trusted <=1;
+                        next_state<=DST; end
+                  else
+                        trusted <=0; 
+                        next_state<=WAIT;
 
 		end
 //-----------------------------------------------------------------------------------------------------------------------------------------
 		DST:                                                 // Loading Destination id state
-		begin if(trusted ==1) begin
-			  if((8'd0<=pdata) && (pdata<=8'd127))
-                begin wdata_port_1[waddr_in_port_1]<=temp1;
+		begin 
+		  if(trusted ==1)
+		  begin
+		      if((8'd0<=pdata) && (pdata<=8'd127))
+                      begin
+		      wdata_port_1[waddr_in_port_1]<=temp1;
                       dest_p<=1;
                       temp1<=pdata;
-					  next_state<=SIZE; end
-	          else if((8'd128<=pdata) && (pdata<=8'd195)) 
-                begin wdata_port_2[waddr_in_port_2] <=temp1;
+		      next_state<=SIZE;
+		      end
+	              else if((8'd128<=pdata) && (pdata<=8'd195)) 
+                      begin
+		      wdata_port_2[waddr_in_port_2] <=temp1;
                       dest_p<=2;
                       temp1 <=pdata;
-					  next_state <=SIZE; end        
-              else if((8'd196<=pdata) && (pdata<=8'd255)) 
-                begin wdata_port_3[waddr_in_port_3] <=temp1;
+		      next_state <=SIZE;
+		      end        
+                      else if((8'd196<=pdata) && (pdata<=8'd255)) 
+                      begin
+		      wdata_port_3[waddr_in_port_3] <=temp1;
                       dest_p<=3;
                       temp1 <=pdata;
-					  next_state <=SIZE; end end
-			  else
-					next_state <= SIZE;
-			end
+		      next_state <=SIZE;
+		      end
+		  end
+		  else
+       		      next_state <= SIZE;
+		end
 //-----------------------------------------------------------------------------------------------------------------------------------------
 		SIZE:                                             //Loading Size state
 		begin
